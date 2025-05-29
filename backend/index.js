@@ -1,86 +1,68 @@
 import serverless from 'serverless-http';
 import express from 'express';
-import {fetchTasks, createTask, updateTask, deleteTask} from './task.js';
-import bodyParser from "body-parser";
-import cors from "cors";
+import dotenv from 'dotenv';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import cors from 'cors';
+import { fetchTasks, createTask, updateTask, deleteTask } from './task.js';
+
+// Load .env variables
+dotenv.config();
 
 const app = express();
-const port = 3001;
+// For this Lambda deployment, we'll always use development settings
+const allowedOrigins = process.env.DEV_CLIENT_URL?.split(',') || [];
 
-app.use(express.json());
+// Middleware
+app.use(helmet());                           // Security headers
+app.use(express.json());                     // JSON parsing
+app.use(morgan('combined'));                 // HTTP logging
+app.use(
+    cors({ origin: (origin, callback) => {
+            // Allow requests with no origin (e.g. Postman, mobile apps)
+            if (!origin || allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+            return callback(new Error('CORS policy: origin not allowed'));
+        } })
+);
 
-if(process.env.DEVELOPMENT){
-    app.use(cors());
-}
+// Async wrapper for error handling
+const asyncHandler = (fn) => (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+};
 
-
-// app.use(bodyParser.json());
-// app.use(bodyParser.urlencoded({ extended: true }));
-
-app.get('/', async (req, res) => {
-    res.send('Hello World!');
+// Healthcheck
+app.get('/', (req, res) => {
+    res.json({ message: 'Hello World!' });
 });
 
-app.get('/task', async (req, res) => {
-    try{
-        const tasks = await fetchTasks();
-        res.send(tasks.items);
+// CRUD routes
+app.get('/tasks', asyncHandler(async (req, res) => {
+    const { items } = await fetchTasks();
+    res.json(items);
+}));
 
-    }catch(err){
-        console.log(err);
-        res.status(400).send("Error fetching tasks | "+err);
-    }
+app.post('/tasks', asyncHandler(async (req, res) => {
+    const newTask = await createTask(req.body);
+    res.status(201).json(newTask);
+}));
+
+app.put('/tasks/:id', asyncHandler(async (req, res) => {
+    const updatedTask = await updateTask({ id: req.params.id, ...req.body });
+    res.json(updatedTask);
+}));
+
+app.delete('/tasks/:id', asyncHandler(async (req, res) => {
+    await deleteTask(req.params.id);
+    res.sendStatus(204);
+}));
+
+// Global error handler
+app.use((err, req, res, next) => {
+    console.error('Unhandled error:', err);
+    res.status(err.status || 500).json({ error: err.message });
 });
 
-app.post('/task', async (req, res) => {
-    try{
-
-        const task = req.body;
-        const response = await createTask(task);
-        res.send(response);
-
-    }catch(err){
-
-        console.log(err);
-        res.status(400).send("Error creating tasks | "+err);
-
-    }
-});
-
-app.put('/task', async (req, res) => {
-
-    try{
-
-        const task = req.body;
-        const response = await updateTask(task);
-        res.send(response);
-
-    }catch(err){
-
-        console.log(err);
-        res.status(400).send("Error updating tasks | "+err);
-
-    }
-
-});
-
-app.delete('/task/:id', async (req, res) => {
-
-    try{
-        const {id} = req.params;
-        const response = await deleteTask(id);
-
-    }catch(err){
-        console.log(err);
-        res.status(400).send("Error Deleting Task | "+err);
-    }
-
-});
-
-if(process.env.DEVELOPMENT){
-    app.listen(port, () => {
-        console.log(`Server is running on http://localhost:${port}`);
-    });
-}
-
+// Export Lambda handler
 export const handler = serverless(app);
