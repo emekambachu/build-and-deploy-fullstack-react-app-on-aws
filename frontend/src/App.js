@@ -37,13 +37,19 @@ export default function App() {
             />
 
             {
-                tasks.map((task) => (
-                    <Task
-                        task={task}
-                        key={task.id}
-                        fetchTasks={fetchTasks}
-                    />
-                ))
+                tasks && tasks.length > 0 ? (
+                    tasks.map((task) => (
+                        <Task
+                            task={task}
+                            key={task.id}
+                            fetchTasks={fetchTasks}
+                        />
+                    ))
+                ) : (
+                    <div className="noTasks">
+                        <h2>No tasks available</h2>
+                    </div>
+                )
             }
 
         </ThemeProvider>
