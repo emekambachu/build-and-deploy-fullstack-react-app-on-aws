@@ -25,15 +25,15 @@ export default function App() {
         }
     }
 
-    useEffect(() => {
-        fetchTasks();
+    useEffect(async () => {
+        await fetchTasks();
     }, []);
 
     return (
         <ThemeProvider theme={darkTheme}>
             <CssBaseline />
             <AddTaskForm
-                fetchTasks={fetchTasks()}
+                fetchTasks={fetchTasks}
             />
 
             {

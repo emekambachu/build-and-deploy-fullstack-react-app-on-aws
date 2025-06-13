@@ -11,21 +11,36 @@ dotenv.config();
 
 const app = express();
 // For this Lambda deployment, we'll always use development settings
-const allowedOrigins = process.env.DEV_CLIENT_URL?.split(',') || [];
+const allowedOrigins = process.env.CLIENT_URL?.split(',') || [];
 
 // Middleware
-app.use(helmet());                           // Security headers
-app.use(express.json());                     // JSON parsing
-app.use(morgan('combined'));                 // HTTP logging
-app.use(
-    cors({ origin: (origin, callback) => {
-            // Allow requests with no origin (e.g. Postman, mobile apps)
-            if (!origin || allowedOrigins.includes(origin)) {
-                return callback(null, true);
-            }
-            return callback(new Error('CORS policy: origin not allowed'));
-        } })
-);
+app.use(helmet());                 // Security headers
+app.use(express.json());           // JSON parsing
+app.use(morgan('combined')); // HTTP logging
+
+if(process.env.NODE_ENV && process.env.NODE_ENV === 'development') {
+    app.use(
+        cors(
+            { origin: (origin, callback) => {
+                // Allow requests with no origin (e.g. Postman, mobile apps)
+                if (!origin || allowedOrigins.includes(origin)) {
+                    return callback(null, true);
+                }
+                return callback(new Error('CORS policy: origin not allowed'));
+            }}
+        )
+    );
+}
+
+// app.use(
+//     cors({ origin: (origin, callback) => {
+//             // Allow requests with no origin (e.g. Postman, mobile apps)
+//             if (!origin || allowedOrigins.includes(origin)) {
+//                 return callback(null, true);
+//             }
+//             return callback(new Error('CORS policy: origin not allowed'));
+//         } })
+// );
 
 // Async wrapper for error handling
 const asyncHandler = (fn) => (req, res, next) => {
